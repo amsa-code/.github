@@ -1,0 +1,119 @@
+name: Maven CI Build
+
+on:
+  workflow_call:
+    inputs:
+      maven_args:
+        description: The arguments to pass to all Maven commands when building the code
+        required: false
+        default: '-e -V -B'
+        type: string
+
+      maven_version:
+        description: The Maven version used for builds
+        required: false
+        default: '3.9.6'
+        type: string
+
+      os-matrix:
+        description: 'os matrix as json array'
+        required: false
+        default: '[ "ubuntu-latest" ]'
+        type: string
+
+      jdk-matrix:
+        description: 'jdk matrix as json array'
+        required: false
+        default: '[ "8", "11", "17" ]'
+        type: string
+
+      matrix-exclude:
+        description: 'exclude for matrix as json'
+        required: false
+        default: '[]'
+        type: string
+
+      max-parallel:
+        description: 'max parallel jobs'
+        required: false
+        default: 100
+        type: number
+
+      timeout-minutes:
+        description: 'timeout-minutes used by the builds (defaults to 360)'
+        required: false
+        default: 360
+        type: number
+
+      jdk-distribution-matrix:
+        description: "jdk distribution matrix"
+        required: false
+        default: '[ "temurin" ]'
+        type: string
+
+      verify-goal:
+        description: The Maven goal used by verify jobs
+        required: false
+        default: 'verify javadoc:javadoc'
+        type: string
+
+      verify-fail-fast:
+        description: Determinate if verification matrix should fail fast
+        required: false
+        default: true
+        type: boolean
+
+jobs:
+
+  build:
+    name: ${{ matrix.os }} jdk-${{ matrix.jdk }}-${{ matrix.distribution }}-mvn-${{ inputs.maven_version }}
+    timeout-minutes: ${{ inputs.timeout-minutes }}
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      fail-fast: ${{ inputs.verify-fail-fast }}
+      matrix:
+        os: ${{ fromJSON( inputs.os-matrix ) }}
+        jdk: ${{ fromJSON( inputs.jdk-matrix ) }}
+        distribution: ${{ fromJSON( inputs.jdk-distribution-matrix ) }}
+        exclude: ${{ fromJSON( inputs.matrix-exclude ) }}
+      max-parallel: ${{ inputs.max-parallel }}
+
+    steps:
+      - uses: actions/checkout@v2
+      - name: Set up JDK ${{ matrix.java }} 
+        uses: actions/setup-java@v2
+        with:
+          java-version: ${{ matrix.jdk }}
+          distribution: ${{ matrix.distribution }}
+          cache: 'maven'
+
+      - name: Set up Maven
+        run: mvn --errors --batch-mode --show-version wrapper:wrapper "-Dmaven=${{ inputs.maven_version }}"
+
+      - name: Build with Maven
+        run: ./mvnw --errors --batch-mode --show-version ${{ inputs.maven_args }} ${{ inputs.verify-goal }}
+
+      - uses: codecov/codecov-action@v1
+        with:
+          file: ./**/target/site/jacoco/jacoco.xml
+          name: codecov
+  dependabot:
+    runs-on: ubuntu-latest
+    needs: build
+    permissions:
+      pull-requests: write
+      contents: write
+    if: ${{ github.actor == 'dependabot[bot]' && github.event_name == 'pull_request' }}
+    steps:
+      - name: Dependabot metadata
+        id: metadata
+        uses: dependabot/fetch-metadata@v1.1.1
+        with:
+          github-token: "${{ secrets.GITHUB_TOKEN }}"
+      - name: Enable auto-merge for Dependabot PRs
+        if: ${{!contains(steps.metadata.outputs.dependency-names, 'maven-plugin-api') && (steps.metadata.outputs.update-type == 'version-update:semver-minor' || steps.metadata.outputs.update-type == 'version-update:semver-patch')}}
+        run: gh pr merge --auto --rebase "$PR_URL"
+        env:
+          PR_URL: ${{github.event.pull_request.html_url}}
+          GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
