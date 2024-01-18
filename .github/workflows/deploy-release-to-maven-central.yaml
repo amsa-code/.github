@@ -14,6 +14,13 @@ on:
         default: '11'
         type: string
 
+      maven_version:
+        description: The Maven version used for builds
+        required: false
+        default: '3.9.6'
+        type: string
+
+
 jobs:
   release:
     name: Deploy Release to Maven Central Sonatype OSSRH
@@ -26,24 +33,34 @@ jobs:
         uses: actions/setup-java@v4
         with:
           java-version: ${{ inputs.jdk_version }}
+          distribution: 'temurin'
+          cache: 'maven'
+
+      - name: Set up Maven
+        run: mvn --errors --batch-mode --show-version wrapper:wrapper "-Dmaven=${{ inputs.maven_version }}"
 
       - name: Build with Maven 
         # checks that jar and javadoc builds
         # javadoc jar will be reused in the mvn deploy 
-        run: mvn -B package --file pom.xml
+        run: ./mvnw -B package --file pom.xml
 
       - name: Set up Maven settings and import GPG keys
         uses: actions/setup-java@v4
         with: # running setup-java again overwrites the settings.xml
           java-version: 11
+          distribution: 'temurin'
+          cache: 'maven'
           server-id: ossrh
           server-username: OSSRH_USERNAME
           server-password: OSSRH_PASSWORD
           gpg-private-key: ${{ secrets.GPG_SECRET_KEYS_ARMOR }}
           gpg-passphrase: GPG_PASSPHRASE
 
+      - name: Set up Maven
+        run: mvn --errors --batch-mode --show-version wrapper:wrapper "-Dmaven=${{ inputs.maven_version }}"
+
       - name: Sign and publish to Maven Central
-        run: mvn -P release deploy
+        run: ./mvnw -P release deploy
         env:
           OSSRH_USERNAME: ${{ secrets.OSSRH_USERNAME }}
           OSSRH_PASSWORD: ${{ secrets.OSSRH_PASSWORD }}
