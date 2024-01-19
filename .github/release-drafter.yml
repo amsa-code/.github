@@ -6,7 +6,7 @@ version-template: $MAJOR.$MINOR.$PATCH
 # Emoji reference: https://gitmoji.carloscuesta.me/
 categories:
   - title: ":boom: Breaking changes"
-    labels: 
+    labels:
       - breaking
   - title: 🚨 Removed
     label: removed
@@ -32,23 +32,22 @@ categories:
       - regression
   - title: ":construction_worker: Changes for plugin developers"
     labels:
-      - developer 
+      - developer
   # Default label used by Dependabot
   - title: 📦 Dependency updates
     label: dependencies
   - title: 📝 Documentation updates
     label: documentation
   - title: 👻 Maintenance
-    labels: 
+    labels:
       - chore
       - internal
-      - maintenance
   - title: 🚦 Tests
-    labels: 
+    labels:
       - test
       - tests
   - title: 🔧 Build
-    label: build         
+    label: build
 exclude-labels:
   - reverted
   - no-changelog
